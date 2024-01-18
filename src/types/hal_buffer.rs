@@ -3,10 +3,11 @@ use std::fmt::{Display, Error};
 use iree_sys::{
     helper::IREE_CHECK_OK,
     iree::runtime::api::{
-        iree_hal_buffer_params_t, iree_hal_buffer_usage_t, iree_hal_buffer_view_allocate_buffer,
-        iree_hal_buffer_view_format, iree_hal_buffer_view_release, iree_hal_buffer_view_shape,
-        iree_hal_buffer_view_t, iree_hal_dim_t, iree_hal_element_types_t,
-        iree_hal_encoding_types_t, iree_hal_memory_access_t, iree_hal_memory_type_t,
+        iree_hal_buffer_params_t, iree_hal_buffer_usage_t,
+        iree_hal_buffer_view_allocate_buffer_copy, iree_hal_buffer_view_format,
+        iree_hal_buffer_view_release, iree_hal_buffer_view_shape, iree_hal_buffer_view_t,
+        iree_hal_device_t, iree_hal_dim_t, iree_hal_element_types_t, iree_hal_encoding_types_t,
+        iree_hal_memory_access_t, iree_hal_memory_type_t,
     },
 };
 
@@ -14,7 +15,7 @@ use crate::err::IreeError;
 
 use super::{
     allocator::IreeAllocator, bytespan::IreeConstByteSpan, hal_allocator::IreeHalAllocator,
-    status::IreeStatus,
+    hal_device::IreeHalDevice, status::IreeStatus,
 };
 
 pub type IreeHalBufferShape = Vec<iree_hal_dim_t>;
@@ -62,7 +63,8 @@ pub struct IreeHalBufferView {
 }
 
 impl IreeHalBufferView {
-    pub fn allocate_buffer<T>(
+    pub fn allocate_buffer_copy<T>(
+        device: &IreeHalDevice,
         allocator: &IreeHalAllocator,
         shape: &IreeHalBufferShape,
         element_type: iree_hal_element_types_t,
@@ -72,7 +74,8 @@ impl IreeHalBufferView {
     ) -> Result<Self, IreeError> {
         let mut buffer_view_ptr = std::mem::MaybeUninit::<*mut iree_hal_buffer_view_t>::uninit();
         unsafe {
-            let status = iree_hal_buffer_view_allocate_buffer(
+            let status = iree_hal_buffer_view_allocate_buffer_copy(
+                device.device_ptr,
                 allocator.allocator_ptr,
                 shape.len(),
                 shape.as_ptr(),

@@ -1,6 +1,6 @@
 [package]
 name = "iree-rs"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 description = "Rustic bindings for the IREE runtime"
 license = "MIT"
@@ -10,7 +10,7 @@ readme = "README.md"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-iree-sys = { path = "iree-sys", version = "0.1.0" }
+iree-sys = { path = "iree-sys", version = "0.1.1" }
 
 [dev-dependencies]
 serde = { version = "1.0.152", features = ["derive"] }

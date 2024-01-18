@@ -1,6 +1,6 @@
 [package]
 name = "iree-sys"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 links = "iree"
 description = "Rust FFI bindings for IREE"
