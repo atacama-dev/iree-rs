@@ -43,6 +43,26 @@ def predictions(torch_func, jit_func, img, labels):
     print(prediction)
 
 
+def load_and_preprocess_image(url: str):
+    headers = {
+        'User-Agent':
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36'
+    }
+    img = Image.open(requests.get(url, headers=headers,
+                                  stream=True).raw).convert("RGB")
+    # preprocessing pipeline
+    preprocess = transforms.Compose([
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                             std=[0.229, 0.224, 0.225]),
+    ])
+    img_preprocessed = preprocess(img)
+    return torch.unsqueeze(img_preprocessed, 0)
+
+image_url = "https://upload.wikimedia.org/wikipedia/commons/2/26/YellowLabradorLooking_new.jpg"
+
 print("load image from " + image_url, file=sys.stderr)
 img = load_and_preprocess_image(image_url)
 labels = load_labels()
@@ -55,3 +75,10 @@ compiled = backend.compile(module)
 jit_module = backend.load(compiled)
 
 predictions(resnet18.forward, jit_module.forward, img, labels)
+
+
+
+outfile = open("resnet18.mlir", "w")
+outfile.write(str(module))
+
+

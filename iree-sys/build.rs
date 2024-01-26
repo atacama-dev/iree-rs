@@ -6,8 +6,7 @@ use std::process::{Command, Output};
 
 use git2::Repository;
 
-static IREE_SAMPLES_REPO: &str = "https://github.com/iree-org/iree-samples";
-static IREE_REPO: &str = "https://github.com/iree-org/iree";
+static IREE_REPO: &str = "https://github.com/openxla/iree";
 
 fn shallow_clone(path: &Path, repo: &str) -> Repository {
     let mut child = Command::new("git")
@@ -45,22 +44,30 @@ fn clone_and_build_iree(out_dir: &Path) -> PathBuf {
     let iree_dir = out_dir.join("iree");
     let iree = get_repo(iree_dir.as_path(), IREE_REPO);
 
-    // clone IREE samples repo
-    let iree_samples = get_repo(&out_dir.join("iree-samples"), IREE_SAMPLES_REPO);
-
     // make build directory
-    let mut iree_samples_build_path = out_dir.join("iree-samples-build");
-    if iree_samples_build_path.exists() {
-        // already built!
-        return iree_samples_build_path;
-    }
-    std::fs::create_dir_all(iree_samples_build_path.clone()).unwrap();
+    let mut iree_build_path = out_dir.join("iree-build");
 
-    // build iree-samples
-    cmake::Config::new(out_dir.join("iree-samples/runtime-library"))
-        .define("BUILD_SHARED_LIBS", "OFF")
-        .define("CMAKE_C_COMPILER", "clang")
+    /*    cmake -G Ninja -B ../iree-build/  \
+       -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+       -DIREE_ENABLE_ASSERTIONS=ON \
+       -DIREE_ENABLE_SPLIT_DWARF=ON \
+       -DIREE_ENABLE_THIN_ARCHIVES=ON \
+       -DCMAKE_C_COMPILER=clang \
+       -DCMAKE_CXX_COMPILER=clang++
+           -DIREE_ENABLE_LLD=ON
+    */
+
+    // build iree
+    cmake::Config::new(out_dir.join("iree"))
+        .generator("Ninja")
+        .define("CMAKE_BUILD_TYPE", "RelWithDebInfo")
+        .define("IREE_ENABLE_ASSERTIONS", "ON")
+        .define("IREE_BUILD_SAMPLES", "OFF")
+        .define("IREE_ENABLE_SPLIT_DWARF", "ON")
+        .define("IREE_ENABLE_THIN_ARCHIVES", "ON")
         .define("CMAKE_CXX_COMPILER", "clang++")
+        .define("CMAKE_C_COMPILER", "clang")
+        .define("IREE_ENABLE_LLD", "ON")
         .define(
             "IREE_ROOT_DIR",
             out_dir
@@ -70,17 +77,24 @@ fn clone_and_build_iree(out_dir: &Path) -> PathBuf {
                 .to_str()
                 .unwrap(),
         )
-        .out_dir(iree_samples_build_path.clone())
+        .out_dir(iree_build_path.clone())
         .build();
 
     // add library path to linker
-
-    iree_samples_build_path
+    iree_build_path
 }
 
 fn main() {
     let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
     let iree_build_dir = clone_and_build_iree(out_path.as_path());
+    println!(
+        "cargo:rustc-link-search={}",
+        iree_build_dir
+            .join("build/runtime/src/iree/runtime/")
+            .to_str()
+            .unwrap()
+    );
+
     println!(
         "cargo:rustc-link-search={}",
         iree_build_dir.join("build/lib").to_str().unwrap()
@@ -91,53 +105,51 @@ fn main() {
     println!(
         "cargo:rustc-link-search={}",
         iree_build_dir
-            .join("build/iree_core/third_party/cpuinfo/")
+            .join("build/third_party/cpuinfo/")
             .to_str()
             .unwrap()
     );
 
-    // flatcc
     println!(
         "cargo:rustc-link-search={}",
         iree_build_dir
-            .join("build/iree_core/build_tools/third_party/flatcc/")
+            .join("build/build_tools/third_party/flatcc/")
             .to_str()
             .unwrap()
     );
 
-    // clog
     println!(
         "cargo:rustc-link-search={}",
         iree_build_dir
-            .join("build/iree_core/third_party/cpuinfo/deps/clog/")
+            .join("build/third_party/spirv_cross/")
             .to_str()
             .unwrap()
     );
-    let iree_include_dir = iree_build_dir.as_path().join("build/include");
+    let iree_runtime_include_dir = out_path.join("iree/runtime/src");
+    let iree_compiler_include_dir = out_path.join("iree/compiler/bindings/c/");
 
-    println!("cargo:rustc-link-lib=iree");
+    println!("cargo:rustc-link-lib=iree_runtime_unified");
+    //    println!("cargo:rustc-link-lib=IREECompiler");
+    println!("cargo:rustc-link-lib=iree_compiler_bindings_c_loader");
 
     // third party libraries
     println!("cargo:rustc-link-lib=cpuinfo");
     println!("cargo:rustc-link-lib=flatcc_parsing");
-    println!("cargo:rustc-link-lib=clog");
+    println!("cargo:rustc-link-lib=spirv-cross-core");
+
     println!("cargo:rustc-link-lib=stdc++");
 
     // gather all api headers we want
-    let iree_api_headers = ["iree/runtime/api.h"];
+    let iree_api_headers = ["iree/runtime/api.h", "iree/compiler/embedding_api.h"];
 
-    for &header in iree_api_headers.iter() {
+    let gen_header = (|include_dir: &PathBuf, header: &Path| {
         let header_out = Path::new(header)
             .to_str()
             .and_then(|s| s.strip_suffix(".h"))
             .and_then(|s| Some(format!("{}.rs", s)))
             .unwrap();
 
-        if out_path.join(header_out.clone()).exists() {
-            // already generated
-            continue;
-        }
-        let header_buf = iree_include_dir.join(header);
+        let header_buf = include_dir.join(header);
         let header_path = header_buf.as_path();
 
         let dir = out_path.join(Path::new(header).parent().unwrap());
@@ -148,7 +160,7 @@ fn main() {
 
         let bindings = bindgen::Builder::default()
             .header(header_path.to_str().unwrap())
-            .clang_arg(format!("-I{}", iree_include_dir.to_str().unwrap()))
+            .clang_arg(format!("-I{}", include_dir.to_str().unwrap()))
             .default_enum_style(bindgen::EnumVariation::NewType {
                 is_bitfield: true,
                 is_global: true,
@@ -162,7 +174,21 @@ fn main() {
         bindings
             .write_to_file(out_path.join(header_out))
             .expect("Couldn't write bindings!");
-    }
+    });
+
+    gen_header(
+        &out_path.join("iree/runtime/src"),
+        Path::new("iree/runtime/api.h"),
+    );
+    gen_header(
+        &out_path.join("iree/compiler/bindings/c/"),
+        Path::new("iree/compiler/embedding_api.h"),
+    );
+
+    gen_header(
+        &out_path.join("iree/compiler/bindings/c/"),
+        Path::new("iree/compiler/loader.h"),
+    );
 
     println!("cargo:rerun-if-changed=build.rs");
 }
