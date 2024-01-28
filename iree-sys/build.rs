@@ -68,6 +68,8 @@ fn clone_and_build_iree(out_dir: &Path) -> PathBuf {
         .define("CMAKE_CXX_COMPILER", "clang++")
         .define("CMAKE_C_COMPILER", "clang")
         .define("IREE_ENABLE_LLD", "ON")
+        .define("IREE_TARGET_BACKEND_ROCM", "ON")
+        .define("IREE_EXTERNAL_HAL_DRIVERS", "rocm")
         .define(
             "IREE_ROOT_DIR",
             out_dir

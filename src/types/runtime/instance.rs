@@ -1,7 +1,8 @@
 use iree_sys::{
     helper::IREE_CHECK_OK,
     iree::runtime::api::{
-        iree_hal_device_t, iree_runtime_instance_create, iree_runtime_instance_host_allocator,
+        iree_hal_device_t, iree_hal_driver_registry_t, iree_runtime_instance_create,
+        iree_runtime_instance_driver_registry, iree_runtime_instance_host_allocator,
         iree_runtime_instance_options_initialize, iree_runtime_instance_options_t,
         iree_runtime_instance_options_use_all_available_drivers, iree_runtime_instance_release,
         iree_runtime_instance_t, iree_runtime_instance_try_create_default_device,
@@ -51,6 +52,9 @@ pub struct IreeRuntimeInstance {
 }
 
 impl IreeRuntimeInstance {
+    pub fn ptr(&self) -> *mut iree_runtime_instance_t {
+        self.instance_ptr
+    }
     pub fn try_from_options(
         options: &IreeRuntimeInstanceOptions,
         allocator: &IreeAllocator,
@@ -98,6 +102,16 @@ impl IreeRuntimeInstance {
         Ok(IreeHalDevice {
             device_ptr: unsafe { device_ptr.assume_init() },
         })
+    }
+
+    pub fn registry(&self) -> Result<*mut iree_hal_driver_registry_t, IreeError> {
+        let mut registry_ptr = std::mem::MaybeUninit::<*mut iree_hal_driver_registry_t>::uninit();
+
+        unsafe {
+            let r = iree_runtime_instance_driver_registry(self.instance_ptr);
+            registry_ptr.write(r);
+        }
+        Ok(unsafe { registry_ptr.assume_init() })
     }
 }
 
