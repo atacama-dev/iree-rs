@@ -12,7 +12,10 @@ use iree_sys::{
 
 use crate::{
     err::IreeError,
-    types::{allocator::IreeAllocator, hal_device::IreeHalDevice, status::IreeStatus},
+    types::{
+        allocator::IreeAllocator, hal_device::IreeHalDevice, hal_driver::IreeHalDriverRegistry,
+        status::IreeStatus,
+    },
 };
 
 pub struct IreeRuntimeInstanceOptions {
@@ -104,14 +107,16 @@ impl IreeRuntimeInstance {
         })
     }
 
-    pub fn registry(&self) -> Result<*mut iree_hal_driver_registry_t, IreeError> {
+    pub fn registry(&self) -> Result<IreeHalDriverRegistry, IreeError> {
         let mut registry_ptr = std::mem::MaybeUninit::<*mut iree_hal_driver_registry_t>::uninit();
 
         unsafe {
             let r = iree_runtime_instance_driver_registry(self.instance_ptr);
             registry_ptr.write(r);
         }
-        Ok(unsafe { registry_ptr.assume_init() })
+        Ok(IreeHalDriverRegistry {
+            driver_registry_ptr: unsafe { registry_ptr.assume_init() },
+        })
     }
 }
 
