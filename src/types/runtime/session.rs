@@ -133,7 +133,7 @@ impl IreeRuntimeSession {
 impl Drop for IreeRuntimeSession {
     fn drop(&mut self) {
         unsafe {
-            iree_runtime_session_release(self.session_ptr);
+            // iree_runtime_session_release(self.session_ptr);
         }
     }
 }

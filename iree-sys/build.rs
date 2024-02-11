@@ -1,4 +1,4 @@
-extern crate bindgen;
+use bindgen::Builder;
 
 use std::env;
 use std::path::{Path, PathBuf};
@@ -142,7 +142,7 @@ fn main() {
     println!("cargo:rustc-link-lib=stdc++");
 
     // gather all api headers we want
-    let iree_api_headers = ["iree/runtime/api.h", "iree/compiler/embedding_api.h"];
+    let _iree_api_headers = ["iree/runtime/api.h", "iree/compiler/embedding_api.h"];
 
     let gen_header = (|include_dir: &PathBuf, header: &Path| {
         let header_out = Path::new(header)
@@ -160,7 +160,7 @@ fn main() {
             std::fs::create_dir_all(&dir).expect("Unable to create directory");
         }
 
-        let bindings = bindgen::Builder::default()
+        let bindings = Builder::default()
             .header(header_path.to_str().unwrap())
             .clang_arg(format!("-I{}", include_dir.to_str().unwrap()))
             .default_enum_style(bindgen::EnumVariation::NewType {
@@ -169,7 +169,7 @@ fn main() {
             })
             .generate_inline_functions(false)
             .derive_default(true)
-            .parse_callbacks(Box::new(bindgen::CargoCallbacks))
+            .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
             .generate()
             .expect("Unable to generate bindings");
 
@@ -181,15 +181,28 @@ fn main() {
     gen_header(
         &out_path.join("iree/runtime/src"),
         Path::new("iree/runtime/api.h"),
+        /*         Path::new("iree/runtime/api.h"),
+         */
+    );
+
+    gen_header(
+        &out_path.join("iree/runtime/src"),
+        Path::new("iree/base/api.h"),
+        /*         Path::new("iree/base/time.h"),
+         */
     );
     gen_header(
         &out_path.join("iree/compiler/bindings/c/"),
         Path::new("iree/compiler/embedding_api.h"),
+        /*         Path::new("iree/compiler/embedding_api.h"),
+         */
     );
 
     gen_header(
         &out_path.join("iree/compiler/bindings/c/"),
         Path::new("iree/compiler/loader.h"),
+        /*         Path::new("iree/compiler/loader.h"),
+         */
     );
 
     println!("cargo:rerun-if-changed=build.rs");

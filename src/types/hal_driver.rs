@@ -10,6 +10,7 @@ use iree_sys::iree::runtime::api::{
     iree_hal_driver_registry_t, iree_hal_driver_registry_try_create, iree_hal_driver_t,
     iree_string_view_t,
 };
+
 use std::fmt::Display;
 use std::ptr::slice_from_raw_parts;
 

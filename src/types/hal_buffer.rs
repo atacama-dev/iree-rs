@@ -3,11 +3,11 @@ use std::fmt::{Display, Error};
 use iree_sys::{
     helper::IREE_CHECK_OK,
     iree::runtime::api::{
-        iree_hal_buffer_params_t, iree_hal_buffer_usage_t,
-        iree_hal_buffer_view_allocate_buffer_copy, iree_hal_buffer_view_format,
-        iree_hal_buffer_view_release, iree_hal_buffer_view_shape, iree_hal_buffer_view_t,
-        iree_hal_device_t, iree_hal_dim_t, iree_hal_element_types_t, iree_hal_encoding_types_t,
-        iree_hal_memory_access_t, iree_hal_memory_type_t,
+        iree_hal_buffer_params_t, iree_hal_buffer_t, iree_hal_buffer_usage_t,
+        iree_hal_buffer_view_allocate_buffer_copy, iree_hal_buffer_view_buffer,
+        iree_hal_buffer_view_format, iree_hal_buffer_view_release, iree_hal_buffer_view_shape,
+        iree_hal_buffer_view_t, iree_hal_device_t, iree_hal_dim_t, iree_hal_element_types_t,
+        iree_hal_encoding_types_t, iree_hal_memory_access_t, iree_hal_memory_type_t,
     },
 };
 
@@ -58,6 +58,9 @@ impl IreeHalBufferViewParamsBuilder {
     }
 }
 
+pub struct IreeHalBuffer {
+    pub(crate) buffer_ptr: *mut iree_hal_buffer_t,
+}
 pub struct IreeHalBufferView {
     pub(crate) buffer_view_ptr: *mut iree_hal_buffer_view_t,
 }
@@ -138,6 +141,13 @@ impl IreeHalBufferView {
             out_shape.truncate(out_shape_rank.assume_init());
         }
         return Ok(out_shape);
+    }
+
+    pub fn buffer(&self) -> Result<IreeHalBuffer, IreeError> {
+        let mut out_buffer = std::mem::MaybeUninit::<*mut iree_hal_buffer_t>::uninit();
+
+        let buffer_ptr = unsafe { iree_hal_buffer_view_buffer(self.buffer_view_ptr) };
+        Ok(IreeHalBuffer { buffer_ptr })
     }
 }
 

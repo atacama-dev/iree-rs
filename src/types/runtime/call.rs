@@ -4,7 +4,7 @@ use iree_sys::{
         iree_hal_buffer_view_t, iree_runtime_call_deinitialize, iree_runtime_call_flags_t,
         iree_runtime_call_initialize_by_name, iree_runtime_call_inputs_push_back_buffer_view,
         iree_runtime_call_invoke, iree_runtime_call_outputs_pop_front_buffer_view,
-        iree_runtime_call_t, iree_string_view_t,
+        iree_runtime_call_t, iree_string_view_t, iree_vm_invoke,
     },
 };
 
@@ -100,7 +100,7 @@ impl IreeRuntimeCall {
 impl Drop for IreeRuntimeCall {
     fn drop(&mut self) {
         unsafe {
-            iree_runtime_call_deinitialize(&mut self.call);
+            //iree_runtime_call_deinitialize(&mut self.call);
         }
     }
 }
