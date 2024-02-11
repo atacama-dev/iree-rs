@@ -82,34 +82,35 @@ use git2::Repository;
 //                 .unwrap(),
 //         )
 //         .out_dir(iree_build_path.clone())
-//         .build();
+//         / iree_build_dir is allways in in ../vendor/iree-build/iree.build();
 
 //     // add library path to linker
 // iree_build_path
 // }
 
 fn main() {
-    // let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
-    // let iree_build_dir = clone_and_build_iree(out_path.as_path());
-    // iree_build_dir is allways in in ../vendor/iree-build/iree
+    let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
+    // iree_build_dir is always in in ../../iree-build/iree
     let iree_source_dir =
         PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap()).join("../../vendors/");
 
     let iree_build_dir =
-//        PathBuf::from(env::var("OUT_DIR").unwrap()).join("../vendor/iree-build/iree");
-        PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap()).join("../../iree-build/iree");
+        PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap()).join("../../iree-build/iree/");
+
+    let iree_install_dir =
+        PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap()).join("../../iree-install/");
 
     println!(
         "cargo:rustc-link-search={}",
         iree_build_dir
-            .join("build/runtime/src/iree/runtime/")
+            .join("runtime/src/iree/runtime/")
             .to_str()
             .unwrap()
     );
 
     println!(
         "cargo:rustc-link-search={}",
-        iree_build_dir.join("build/lib").to_str().unwrap()
+        iree_build_dir.join("lib/").to_str().unwrap()
     );
 
     // add built third party libraries to linker
@@ -117,7 +118,7 @@ fn main() {
     println!(
         "cargo:rustc-link-search={}",
         iree_build_dir
-            .join("build/third_party/cpuinfo/")
+            .join("third_party/cpuinfo/")
             .to_str()
             .unwrap()
     );
@@ -125,7 +126,7 @@ fn main() {
     println!(
         "cargo:rustc-link-search={}",
         iree_build_dir
-            .join("build/build_tools/third_party/flatcc/")
+            .join("build_tools/third_party/flatcc/")
             .to_str()
             .unwrap()
     );
@@ -133,21 +134,26 @@ fn main() {
     println!(
         "cargo:rustc-link-search={}",
         iree_build_dir
-            .join("build/third_party/spirv_cross/")
+            .join("third_party/spirv_cross/")
             .to_str()
             .unwrap()
     );
     // let iree_runtime_include_dir = iree_source_dir.join("iree/runtime/src");
     // let iree_compiler_include_dir = iree_source_dir.join("iree/compiler/bindings/c/");
 
+    println!(
+        "cargo:rustc-link-arg=-Wl,-rpath, {}",
+        iree_build_dir.join("lib/").to_str().unwrap()
+    );
+
     println!("cargo:rustc-link-lib=iree_runtime_unified");
-    //    println!("cargo:rustc-link-lib=IREECompiler");
+    // println!("cargo:rustc-link-lib=IREECompiler");
     println!("cargo:rustc-link-lib=iree_compiler_bindings_c_loader");
 
     // third party libraries
     println!("cargo:rustc-link-lib=cpuinfo");
     println!("cargo:rustc-link-lib=flatcc_parsing");
-    println!("cargo:rustc-link-lib=spirv-cross-core");
+    //println!("cargo:rustc-link-lib=spirv-cross-core");
 
     println!("cargo:rustc-link-lib=stdc++");
 
@@ -164,7 +170,7 @@ fn main() {
         let header_buf = include_dir.join(header);
         let header_path = header_buf.as_path();
 
-        let dir = iree_source_dir.join(Path::new(header).parent().unwrap());
+        let dir = out_path.join(Path::new(header).parent().unwrap());
 
         if !dir.exists() {
             std::fs::create_dir_all(&dir).expect("Unable to create directory");
@@ -184,7 +190,7 @@ fn main() {
             .expect("Unable to generate bindings");
 
         bindings
-            .write_to_file(iree_source_dir.join(header_out))
+            .write_to_file(out_path.join(header_out))
             .expect("Couldn't write bindings!");
     };
 
@@ -192,10 +198,10 @@ fn main() {
         &iree_source_dir.join("iree/runtime/src"),
         Path::new("iree/runtime/api.h"),
     );
-   gen_header(
+    gen_header(
         &iree_source_dir.join("iree/runtime/src"),
         Path::new("iree/base/api.h"),
-    };
+    );
     gen_header(
         &iree_source_dir.join("iree/compiler/bindings/c/"),
         Path::new("iree/compiler/embedding_api.h"),
