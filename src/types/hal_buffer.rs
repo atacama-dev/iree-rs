@@ -149,6 +149,12 @@ impl IreeHalBufferView {
         let buffer_ptr = unsafe { iree_hal_buffer_view_buffer(self.buffer_view_ptr) };
         Ok(IreeHalBuffer { buffer_ptr })
     }
+
+    pub fn release(&self) {
+        unsafe {
+            iree_hal_buffer_view_release(self.buffer_view_ptr);
+        }
+    }
 }
 
 impl Drop for IreeHalBufferView {

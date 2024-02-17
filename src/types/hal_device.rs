@@ -34,6 +34,12 @@ pub fn iree_infinite_timeout() -> iree_timeout_t {
 }
 
 impl IreeHalDevice {
+    pub fn release(&self) {
+        unsafe {
+            iree_hal_device_release(self.device_ptr);
+        }
+    }
+
     pub fn transfer_d2h<T>(
         &self,
         source: &IreeHalBufferView,

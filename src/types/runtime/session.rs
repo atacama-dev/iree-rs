@@ -3,9 +3,10 @@ use iree_sys::{
     iree::runtime::api::{
         iree_const_byte_span_t, iree_runtime_call_initialize_by_name, iree_runtime_call_t,
         iree_runtime_session_append_bytecode_module_from_memory,
-        iree_runtime_session_create_with_device, iree_runtime_session_device_allocator,
-        iree_runtime_session_options_initialize, iree_runtime_session_options_t,
-        iree_runtime_session_release, iree_runtime_session_t, iree_string_view_t,
+        iree_runtime_session_create_with_device, iree_runtime_session_device,
+        iree_runtime_session_device_allocator, iree_runtime_session_options_initialize,
+        iree_runtime_session_options_t, iree_runtime_session_release, iree_runtime_session_t,
+        iree_string_view_t,
     },
 };
 
@@ -127,6 +128,10 @@ impl IreeRuntimeSession {
             }
         }
         Ok(())
+    }
+    pub fn device(&self) -> IreeHalDevice {
+        let device_ptr = unsafe { iree_runtime_session_device(self.session_ptr) };
+        IreeHalDevice { device_ptr }
     }
 }
 

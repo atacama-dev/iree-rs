@@ -15,4 +15,12 @@ impl IreeAllocator {
             },
         }
     }
+    pub fn null() -> Self {
+        Self {
+            allocator: iree_allocator_t {
+                self_: std::ptr::null_mut(),
+                ctl: None,
+            },
+        }
+    }
 }
