@@ -13,8 +13,11 @@ use iree_sys::{
 use crate::{
     err::IreeError,
     types::{
-        allocator::IreeAllocator, hal_allocator::IreeHalAllocator, hal_device::IreeHalDevice,
+        allocator::IreeAllocator,
+        hal_allocator::IreeHalAllocator,
+        hal_device::{IreeDeviceInfo, IreeHalDevice},
         status::IreeStatus,
+        string::IreeStringView,
     },
 };
 
@@ -46,18 +49,20 @@ impl IreeRuntimeSessionOptionsBuilder {
     }
 }
 
-pub struct IreeRuntimeSession {
+pub struct IreeRuntimeSession<'a> {
     pub(crate) session_ptr: *mut iree_runtime_session_t,
+    pub(crate) driver_name: &'a IreeStringView,
 }
 
-impl IreeRuntimeSession {
+impl<'a> IreeRuntimeSession<'a> {
     pub fn create_with_device(
-        instance: &IreeRuntimeInstance,
+        instance: &'a IreeRuntimeInstance,
         options: &IreeRuntimeSessionOptions,
-        device: &IreeHalDevice,
-        allocator: &IreeAllocator,
+        device: &'a IreeHalDevice,
+        allocator: &'a IreeAllocator,
     ) -> Result<Self, IreeError> {
-        let mut session_ptr = std::mem::MaybeUninit::<*mut iree_runtime_session_t>::uninit();
+        let mut session_ptr: std::mem::MaybeUninit<*mut iree_runtime_session_t> =
+            std::mem::MaybeUninit::<*mut iree_runtime_session_t>::uninit();
 
         unsafe {
             let status = iree_runtime_session_create_with_device(
@@ -77,6 +82,7 @@ impl IreeRuntimeSession {
 
         Ok(Self {
             session_ptr: unsafe { session_ptr.assume_init() },
+            driver_name: device.driver_name(),
         })
     }
 
@@ -129,13 +135,14 @@ impl IreeRuntimeSession {
         }
         Ok(())
     }
+
     pub fn device(&self) -> IreeHalDevice {
         let device_ptr = unsafe { iree_runtime_session_device(self.session_ptr) };
-        IreeHalDevice { device_ptr }
+        IreeHalDevice::new(device_ptr, self.driver_name)
     }
 }
 
-impl Drop for IreeRuntimeSession {
+impl Drop for IreeRuntimeSession<'_> {
     fn drop(&mut self) {
         unsafe {
             // iree_runtime_session_release(self.session_ptr);

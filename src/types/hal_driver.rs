@@ -1,28 +1,36 @@
 use super::allocator::IreeAllocator;
 use super::hal_device::{IreeDeviceInfo, IreeHalDevice};
+use super::string::IreeStringBuilder;
 use super::utils::iree_string_view_to_string;
 use crate::err::IreeError;
 use crate::types::status::IreeStatus;
+use crate::types::string::IreeStringView;
 use iree_sys::helper::IREE_CHECK_OK;
 use iree_sys::iree::runtime::api::{
-    iree_hal_device_id_t, iree_hal_driver_create_device_by_id, iree_hal_driver_info_t,
-    iree_hal_driver_query_available_devices, iree_hal_driver_registry_enumerate,
-    iree_hal_driver_registry_t, iree_hal_driver_registry_try_create, iree_hal_driver_t,
-    iree_string_view_t,
+    iree_hal_device_id_t, iree_hal_driver_create_device_by_id, iree_hal_driver_dump_device_info,
+    iree_hal_driver_info_t, iree_hal_driver_query_available_devices,
+    iree_hal_driver_registry_enumerate, iree_hal_driver_registry_t,
+    iree_hal_driver_registry_try_create, iree_hal_driver_t,
 };
 
 use std::fmt::Display;
 use std::ptr::slice_from_raw_parts;
 
 #[derive(Debug)]
-pub struct IreeHalDriver {
-    name: iree_string_view_t,
+pub struct IreeHalDriver<'a> {
+    pub(crate) name: &'a IreeStringView,
     pub(crate) driver_ptr: *mut iree_hal_driver_t,
 }
 
-impl IreeHalDriver {
-    pub fn name(&self) -> String {
-        iree_string_view_to_string(self.name)
+impl Display for IreeHalDriver<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "driver_name: {}", self.name.to_string())
+    }
+}
+
+impl<'a> IreeHalDriver<'a> {
+    pub fn name(&self) -> &IreeStringView {
+        &self.name
     }
 
     pub fn query_available_devices(
@@ -49,6 +57,7 @@ impl IreeHalDriver {
             .collect();
         Ok(device_infos)
     }
+
     pub fn create_device_by_id(
         &self,
         device_id: iree_hal_device_id_t,
@@ -69,15 +78,29 @@ impl IreeHalDriver {
                 return Err(IreeError::from_status(IreeStatus { status }, allocator));
             }
         };
-        Ok(IreeHalDevice {
-            device_ptr: out_device,
-        })
+
+        Ok(IreeHalDevice::new(out_device, &self.name))
+    }
+
+    pub fn device_info_string_from_device_id(&self, device_id: iree_hal_device_id_t) -> String {
+        let builder = IreeStringBuilder::initialize(IreeAllocator::system_allocator());
+        unsafe {
+            let status = iree_hal_driver_dump_device_info(
+                self.driver_ptr,
+                device_id,
+                builder.iree_string_builder_ptr,
+            );
+            if !IREE_CHECK_OK(status) {
+                return "Failed to dump device info".to_string();
+            }
+        }
+        IreeStringBuilder::buffer(&builder)
     }
 }
 
 pub struct IreeDriverInfo {
-    pub driver_name: iree_string_view_t,
-    pub full_name: iree_string_view_t,
+    pub driver_name: IreeStringView,
+    pub full_name: IreeStringView,
 }
 
 impl Display for IreeDriverInfo {
@@ -85,8 +108,8 @@ impl Display for IreeDriverInfo {
         write!(
             f,
             "driver_name: {}, full_name: {}",
-            iree_string_view_to_string(self.driver_name),
-            iree_string_view_to_string(self.full_name)
+            self.driver_name.to_string(),
+            self.full_name.to_string()
         )
     }
 }
@@ -94,8 +117,8 @@ impl Display for IreeDriverInfo {
 impl From<iree_hal_driver_info_t> for IreeDriverInfo {
     fn from(driver_info: iree_hal_driver_info_t) -> Self {
         Self {
-            driver_name: driver_info.driver_name,
-            full_name: driver_info.full_name,
+            driver_name: IreeStringView::new(driver_info.driver_name),
+            full_name: IreeStringView::new(driver_info.full_name),
         }
     }
 }
@@ -128,16 +151,16 @@ impl IreeHalDriverRegistry {
         Ok(driver_infos)
     }
 
-    pub fn try_create(
+    pub fn try_create<'a>(
         &self,
-        driver_name: iree_string_view_t,
+        driver_name: &'a IreeStringView,
         allocator: &IreeAllocator,
-    ) -> Result<IreeHalDriver, IreeError> {
+    ) -> Result<IreeHalDriver<'a>, IreeError> {
         let mut out_driver = std::ptr::null_mut();
         unsafe {
             iree_hal_driver_registry_try_create(
                 self.driver_registry_ptr,
-                driver_name,
+                *driver_name.iree_string_view_ptr,
                 allocator.allocator,
                 &mut out_driver,
             )

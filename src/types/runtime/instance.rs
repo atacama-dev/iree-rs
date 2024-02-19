@@ -1,7 +1,8 @@
 use iree_sys::{
     helper::IREE_CHECK_OK,
     iree::runtime::api::{
-        iree_hal_device_t, iree_hal_driver_registry_t, iree_runtime_instance_create,
+        iree_hal_device_t, iree_hal_driver_dump_device_info, iree_hal_driver_info_t,
+        iree_hal_driver_registry_t, iree_runtime_instance_create,
         iree_runtime_instance_driver_registry, iree_runtime_instance_host_allocator,
         iree_runtime_instance_options_initialize, iree_runtime_instance_options_t,
         iree_runtime_instance_options_use_all_available_drivers, iree_runtime_instance_release,
@@ -14,7 +15,7 @@ use crate::{
     err::IreeError,
     types::{
         allocator::IreeAllocator, hal_device::IreeHalDevice, hal_driver::IreeHalDriverRegistry,
-        status::IreeStatus,
+        status::IreeStatus, string::IreeStringView,
     },
 };
 
@@ -83,16 +84,14 @@ impl IreeRuntimeInstance {
         IreeAllocator { allocator }
     }
 
-    pub fn try_create_default_device(&self, driver_name: &str) -> Result<IreeHalDevice, IreeError> {
-        let driver_name = iree_string_view_t {
-            data: driver_name.as_ptr() as _,
-            size: driver_name.len() as _,
-        };
+    /* pub fn try_create_default_device(&self, driver_name: &str) -> Result<IreeHalDevice, IreeError> {
+        let driver_name = IreeStringView::from_string(driver_name.to_string());
+
         let mut device_ptr = std::mem::MaybeUninit::<*mut iree_hal_device_t>::uninit();
         unsafe {
             let status = iree_runtime_instance_try_create_default_device(
                 self.instance_ptr,
-                driver_name,
+                *driver_name.iree_string_view_ptr,
                 device_ptr.as_mut_ptr(),
             );
             if !IREE_CHECK_OK(status) {
@@ -102,10 +101,15 @@ impl IreeRuntimeInstance {
                 ));
             }
         }
-        Ok(IreeHalDevice {
-            device_ptr: unsafe { device_ptr.assume_init() },
-        })
-    }
+
+        let driver_info : iree_hal_driver_info_t = unsafe {iree_hal_driver_dump_device_info(self.instance_ptr, device_id, builder)
+
+        Ok(IreeHalDevice::new(
+            unsafe { device_ptr.assume_init() },
+            driver_name,
+
+        ))
+    } */
 
     pub fn registry(&self) -> Result<IreeHalDriverRegistry, IreeError> {
         let mut registry_ptr = std::mem::MaybeUninit::<*mut iree_hal_driver_registry_t>::uninit();

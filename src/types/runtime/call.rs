@@ -172,7 +172,7 @@ impl IreeRuntimeCall {
 impl Drop for IreeRuntimeCall {
     fn drop(&mut self) {
         unsafe {
-            //iree_runtime_call_deinitialize(&mut self.call);
+            iree_runtime_call_deinitialize(&mut self.call);
         }
     }
 }
